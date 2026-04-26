@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="neon">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Data Insights Dashboard Pro</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- PapaParse -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
+    <!-- Chart.js & Zoom Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+
+    <!-- jsPDF & html2canvas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="background-blur"></div>
+    
+    <!-- Navigation Sidebar/Top Menu -->
+    <nav class="app-nav glass-panel">
+        <div class="nav-brand">
+            <i data-lucide="orbit" class="logo-icon"></i>
+            <h2>Data Insights <span class="badge">PRO</span></h2>
+        </div>
+        <ul class="nav-links scrollable-nav">
+            <li><button class="nav-btn active" data-target="view-dashboard"><i data-lucide="layout-dashboard"></i> Dashboard</button></li>
+            <li><button class="nav-btn" data-target="view-wrangling"><i data-lucide="filter"></i> Wrangling</button></li>
+
+            <li><button class="nav-btn" data-target="view-visualizations"><i data-lucide="bar-chart-2"></i> Visualizations</button></li>
+            <li><button class="nav-btn" data-target="view-history"><i data-lucide="history"></i> History</button></li>
+        </ul>
+        <div class="theme-selector">
+            <label for="theme-select"><i data-lucide="palette"></i> Theme:</label>
+            <select id="theme-select" class="dropdown">
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="modern">Modern</option>
+                <option value="neon">Neon</option>
+            </select>
+        </div>
+    </nav>
+
+    <!-- Main Application Area -->
+    <div class="app-container">
+        
+        <!-- ============================== -->
+        <!-- VIEW: DASHBOARD                -->
+        <!-- ============================== -->
+        <main id="view-dashboard" class="view-section active">
+            <header class="app-header">
+                <h1>Data Engine</h1>
+                <p class="subtitle">Upload a dataset to instantly generate statistics and insights.</p>
+            </header>
+
+            <!-- Upload Section -->
+            <section id="upload-section" class="upload-section glass-panel">
+                <div class="upload-area" id="drop-zone">
+                    <div class="upload-pulse"></div>
+                    <i data-lucide="upload-cloud" class="upload-icon"></i>
+                    <h2>Drag & Drop CSV Dataset</h2>
+                    <p>or</p>
+                    <label for="file-input" class="btn btn-primary">
+                        Browse Files
+                        <input type="file" id="file-input" accept=".csv" style="display: none;">
+                    </label>
+                    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--glass-border);">
+                        <button id="voice-dataset-btn" class="btn btn-secondary voice-btn">
+                            <i data-lucide="mic"></i> Generate Dataset via Voice
+                        </button>
+                        <p class="text-sm text-muted mt-2" id="voice-status-text">e.g., "Create dataset with columns Name and Marks with 5 students"</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Loading State -->
+            <div id="loading-state" class="loading-state hidden">
+                <div class="orbit-spinner">
+                    <div class="orbit"></div>
+                    <div class="orbit"></div>
+                    <div class="orbit"></div>
+                </div>
+                <p>Synthesizing Data...</p>
+            </div>
+
+            <!-- Dashboard Results -->
+            <div id="dashboard-results" class="dashboard-results hidden">
+                
+                <!-- Controls -->
+                <div class="flex-between margin-bottom align-center">
+                    <h2 class="current-file-title" id="current-file-display"><i data-lucide="file-text"></i> <span>dataset.csv</span></h2>
+                    
+                    <div class="dashboard-actions">
+                        <button id="auto-clean-btn" class="btn btn-primary btn-sm" title="Remove duplicates, empty rows, & clean text"><i data-lucide="wand-2"></i> Auto Clean</button>
+                        <button id="export-pdf-btn" class="btn btn-primary btn-sm"><i data-lucide="file-output"></i> PDF Report</button>
+                        <button id="export-btn" class="btn btn-secondary btn-sm"><i data-lucide="download"></i> CSV</button>
+                        <button id="close-dataset-btn" class="btn btn-danger-outline btn-sm"><i data-lucide="x"></i> Close</button>
+                    </div>
+                </div>
+
+                <!-- Active Filters Display -->
+                <div id="active-filters-container" class="hidden margin-bottom">
+                    <h4>Active Filters:</h4>
+                    <div id="active-filters-list" class="filter-badge-list"></div>
+                </div>
+
+                <div id="pdf-content-wrapper">
+                    <!-- Overview & Insights -->
+                    <div class="grid-row-2">
+                        <div class="card glass-panel flex-card hover-lift">
+                            <div class="card-header">
+                                <i data-lucide="database"></i>
+                                <h3>Dataset Overview</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="overview-stats">
+                                    <div class="stat-box">
+                                        <span class="stat-label">Rows</span>
+                                        <span class="stat-value" id="val-rows">-</span>
+                                    </div>
+                                    <div class="stat-box">
+                                        <span class="stat-label">Columns</span>
+                                        <span class="stat-value" id="val-cols">-</span>
+                                    </div>
+                                </div>
+                                <div class="table-container">
+                                    <table id="preview-table">
+                                        <thead id="preview-head"></thead>
+                                        <tbody id="preview-body"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card glass-panel flex-card hover-lift">
+                            <div class="card-header flex-between">
+                                <div class="flex-align">
+                                    <i data-lucide="sparkles" class="icon-accent"></i>
+                                    <h3>Future Insights</h3>
+                                </div>
+                                <button id="refresh-insights-btn" class="btn btn-secondary btn-sm" title="Refresh Insights">
+                                    <i data-lucide="refresh-cw"></i> Refresh
+                                </button>
+                            </div>
+                            <div class="card-body" id="insights-container">
+                                <ul class="insights-list" id="insights-list"></ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Statistics -->
+                    <div class="card glass-panel margin-top hover-lift">
+                        <div class="card-header">
+                            <i data-lucide="calculator"></i>
+                            <h3>Numeric Summary</h3>
+                        </div>
+                        <div class="card-body horizontal-scroll">
+                            <table id="stats-table" class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Column</th>
+                                        <th>Mean</th>
+                                        <th>Median</th>
+                                        <th>Min</th>
+                                        <th>Max</th>
+                                        <th>Missing</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="stats-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+
+                </div>
+            </div>
+        </main>
+
+        <!-- ============================== -->
+        <!-- VIEW: DATA WRANGLING           -->
+        <!-- ============================== -->
+        <main id="view-wrangling" class="view-section hidden">
+            <header class="app-header">
+                <h1>Data Wrangling</h1>
+                <p class="subtitle">Clean, filter, and join your datasets.</p>
+            </header>
+
+            <div class="grid-row-2 requires-data hidden">
+                <!-- Drop Columns -->
+                <div class="card glass-panel hover-lift">
+                    <div class="card-header"><i data-lucide="scissors"></i> <h3>Drop Columns</h3></div>
+                    <div class="card-body form-layout">
+                        <p class="text-muted mb-3">Remove unnecessary columns from your dataset.</p>
+                        <select id="wrangl-drop-col" class="dropdown full-width mb-3"></select>
+                        <button id="btn-drop-col" class="btn btn-danger-outline full-width">Drop Selected Column</button>
+                    </div>
+                </div>
+
+                <!-- Add Filter -->
+                <div class="card glass-panel hover-lift">
+                    <div class="card-header"><i data-lucide="filter"></i> <h3>Interactive Filter</h3></div>
+                    <div class="card-body form-layout">
+                        <p class="text-muted mb-3">Filter rows based on conditions.</p>
+                        <select id="wrangl-filter-col" class="dropdown full-width mb-2"></select>
+                        <div style="display:flex; gap:0.5rem; margin-bottom: 1rem;">
+                            <select id="wrangl-filter-op" class="dropdown" style="flex:1;">
+                                <option value=">">></option>
+                                <option value="<"><</option>
+                                <option value="==">==</option>
+                                <option value="!=">!=</option>
+                            </select>
+                            <input type="text" id="wrangl-filter-val" class="dropdown" style="flex:2;" placeholder="Value">
+                        </div>
+                        <button id="btn-add-filter" class="btn btn-primary full-width">Apply Filter</button>
+                        <button id="btn-clear-filters" class="btn btn-secondary full-width mt-2">Clear All Filters</button>
+                    </div>
+                </div>
+
+
+            </div>
+            
+            <div class="empty-state glass-panel requires-no-data">
+                <i class="empty-icon" data-lucide="alert-circle"></i>
+                <h2>No Data Loaded</h2>
+                <p>Upload a dataset in the Dashboard to enable wrangling.</p>
+            </div>
+        </main>
+
+
+
+        <!-- ============================== -->
+        <!-- VIEW: VISUALIZATIONS           -->
+        <!-- ============================== -->
+        <main id="view-visualizations" class="view-section hidden">
+            <header class="app-header">
+                <h1>Advanced Visualizations</h1>
+                <p class="subtitle">Explore your data. Includes Geospatial and Time-Series support!</p>
+            </header>
+
+            <div class="empty-state glass-panel requires-no-data">
+                <i data-lucide="pie-chart" class="empty-icon"></i>
+                <h2>No Data Available</h2>
+            </div>
+
+            <div id="viz-content" class="hidden requires-data">
+                
+                <!-- KPI Dashboard Section -->
+                <div class="kpi-grid margin-bottom">
+                    <div class="kpi-card theme-sales glass-panel hover-lift">
+                        <div class="kpi-header"><i data-lucide="dollar-sign"></i> <span>Total Sales</span></div>
+                        <div class="kpi-value" id="kpi-sales">-</div>
+                        <div class="kpi-trend" id="trend-sales"><span>-</span> vs last year</div>
+                    </div>
+                    <div class="kpi-card theme-profit glass-panel hover-lift">
+                        <div class="kpi-header"><i data-lucide="trending-up"></i> <span>Total Profit</span></div>
+                        <div class="kpi-value" id="kpi-profit">-</div>
+                        <div class="kpi-trend" id="trend-profit"><span>-</span> vs last year</div>
+                    </div>
+                    <div class="kpi-card theme-quantity glass-panel hover-lift">
+                        <div class="kpi-header"><i data-lucide="package"></i> <span>Total Quantity</span></div>
+                        <div class="kpi-value" id="kpi-qty">-</div>
+                        <div class="kpi-trend" id="trend-qty"><span>-</span> vs last year</div>
+                    </div>
+                    <div class="kpi-card theme-avgprofit glass-panel hover-lift">
+                        <div class="kpi-header"><i data-lucide="bar-chart"></i> <span>Avg Monthly Profit</span></div>
+                        <div class="kpi-value" id="kpi-monthly-profit">-</div>
+                        <div class="kpi-trend text-muted">Averaged over all months</div>
+                    </div>
+                    <div class="kpi-card theme-orders glass-panel hover-lift">
+                        <div class="kpi-header"><i data-lucide="shopping-cart"></i> <span>Total Orders</span></div>
+                        <div class="kpi-value" id="kpi-orders">-</div>
+                        <div class="kpi-trend text-muted" id="trend-orders">Count of total records</div>
+                    </div>
+                </div>
+
+                <div class="grid-row-sidebar">
+                    <!-- Controls -->
+                    <div class="card glass-panel control-panel hover-lift">
+                        <div class="card-header">
+                            <i data-lucide="settings"></i>
+                            <h3>Chart Settings</h3>
+                        </div>
+                        <div class="card-body form-layout">
+                            <div class="form-group">
+                                <label>Chart Type</label>
+                                <select id="viz-type" class="dropdown full-width">
+                                    <option value="bar">Bar Chart</option>
+                                    <option value="horizontalBar">Horizontal Bar Chart</option>
+                                    <option value="line">Line Chart (Time Series)</option>
+                                    <option value="scatter">Scatter Plot</option>
+                                    <option value="pie">Pie Chart</option>
+                                    <option value="doughnut">Doughnut Chart</option>
+                                    <option value="histogram">Histogram</option>
+                                    <option value="map">Geospatial Map</option>
+                                </select>
+                            </div>
+                            <div id="viz-standard-opts">
+                                <div class="form-group">
+                                    <label>X-Axis</label>
+                                    <select id="viz-x" class="dropdown full-width"></select>
+                                </div>
+                                <div class="form-group" id="viz-y-group">
+                                    <label>Y-Axis (Select Multiple)</label>
+                                    <div id="viz-y-checkboxes" class="checkbox-list"></div>
+                                </div>
+                            </div>
+                            <div id="viz-map-opts" class="hidden text-muted text-sm">
+                                <p>Map requires 'latitude' and 'longitude' columns.</p>
+                            </div>
+                            
+                            <div class="btn-group-vertical mt-3">
+                                <button id="viz-update-btn" class="btn btn-primary full-width"><i data-lucide="refresh-cw"></i> Render</button>
+                                <button id="viz-reset-zoom-btn" class="btn btn-secondary full-width mt-2"><i data-lucide="zoom-out"></i> Reset Zoom</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chart Display -->
+                    <div class="card glass-panel chart-display hover-lift">
+                        <div class="card-header flex-between">
+                            <div class="flex-align">
+                                <i data-lucide="activity"></i>
+                                <h3 id="viz-title">Interactive Chart</h3>
+                            </div>
+                            <button id="export-chart-btn" class="btn btn-secondary btn-sm" title="Download Chart">
+                                <i data-lucide="image"></i> Export
+                            </button>
+                        </div>
+                        <div class="card-body canvas-wrapper">
+                            <canvas id="advanced-chart"></canvas>
+                            <div id="map-container" class="hidden" style="width: 100%; height: 100%; border-radius: 8px; z-index: 1;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- ============================== -->
+        <!-- VIEW: HISTORY                  -->
+        <!-- ============================== -->
+        <main id="view-history" class="view-section hidden">
+            <header class="app-header">
+                <h1>Analysis History</h1>
+                <p class="subtitle">Click on any past dataset to instantly reload the analysis.</p>
+            </header>
+            
+            <div class="card glass-panel hover-lift">
+                <div class="card-header flex-between">
+                    <div class="flex-align"><i data-lucide="clock"></i><h3>Past Datasets</h3></div>
+                    <button id="clear-history-btn" class="btn btn-danger-outline btn-sm"><i data-lucide="trash-2"></i> Clear</button>
+                </div>
+                <div class="card-body">
+                    <div id="history-list" class="history-grid"></div>
+                    <div id="history-empty" class="empty-state hidden"><p>No history found.</p></div>
+                </div>
+            </div>
+        </main>
+
+    </div>
+
+    <!-- Main JS -->
+    <script src="app.js"></script>
+</body>
+</html>
